@@ -5,7 +5,7 @@ seamless to use.
 
 
 
-## Capabilities
+## Capabilities.
 
 * Check email login 
 * Scrap emails with either subject, sender, keyword
@@ -13,13 +13,21 @@ seamless to use.
 * Command line version
 
 
-## Use cases
+## Use cases.
 Those uses cases are educational.
 
 * Account registration bots
 * Invoice download from emails
 * Scrap general links from emails
 * Fetch notifications
+
+## Known issues:
+
+* Logging is bugged
+* Some email providers don't use common  RFC 3501 and RFC 6154 Standards for folder naming,
+to work around this i have to spam a diverse folder fetching that could rate limit the inbox.
+* Non async as its completely based on synchronous iteration of either folders or messages which could boost speed
+* The MailboxProxy wasn't tested with all providers, and Proxification_v2.py is very experimental.
 
 
 ## Compatible email providers (flexible):
@@ -42,16 +50,16 @@ Those uses cases are educational.
 
 
 
-## Installation
+## Installation.
 
 for now clone this repository and import mailkit, later on i'll be packaging this proprely in pypi.
 
-You also have the requirements.txt to install teh required dependencies 
+You also have the requirements.txt to install the required dependencies 
 
 
 
 
-## Usage
+## Usage.
 
 
 as a module it can be used like this.
