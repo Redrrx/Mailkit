@@ -223,25 +223,27 @@ class MailKit:
                 self.logger.error(str(e))
                 return False
 
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(3))
-    def scrap(self, scrapsub=None, sender=None, keyword=None, seen=None, time_diff=None, specific_date=None):
+    def scrap(self, scrapsub=None, sender=None, keyword=None, seen=None, time_diff=None, specific_date=None,
+              mark_as_read=True):
         """
-        Parameters
-        ----------
-        seen : Optional[bool]
-            Whether to search for seen or unseen messages. None searches for both.
-        time_diff : Optional[timedelta]
-            Time difference to filter emails. For example, timedelta(minutes=5) will filter emails received in the last 5 minutes.
-        specific_date : Optional[datetime]
-            Specific date to filter emails. Emails received on this date will be considered.
-            :param specific_date:
-            :param time_diff:
-            :param seen:
-            :param keyword:
-            :param sender:
-            :param scrapsub:
-        """
-        soups = []
+      Parameters
+      ----------
+      seen : Optional[bool]
+          Whether to search for seen or unseen messages. None searches for both.
+      time_diff : Optional[timedelta]
+          Time difference to filter emails. For example, timedelta(minutes=5) will filter emails received in the last 5 minutes.
+      specific_date : Optional[datetime]
+          Specific date to filter emails. Emails received on this date will be considered.
+          :param specific_date:
+          :param time_diff:
+          :param seen:
+          :param keyword:
+          :param sender:
+          :param scrapsub:
+
+      mark_as_read : bool, optional
+        Whether to mark emails as read. Default is True.
+      """
 
         if self.mailbox:
             if not any([scrapsub, sender, keyword]):
@@ -255,33 +257,35 @@ class MailKit:
             if sender:
                 search_criteria['from_'] = sender
 
-            try:
-                folders = ['INBOX', 'SENT', 'DRAFTS', 'JUNK', 'TRASH', 'ARCHIVE', 'Trash', 'DraftBox', 'Spam',
-                           'Sentbox', 'Archive', 'Deleted', 'Drafts', 'Inbox', 'Junk', 'Notes', 'Outbox', 'Sent']
-                for i in folders:
-                    try:
-                        self.mailbox.folder.set(i)
-                        messages = self.mailbox.fetch(AND(**search_criteria), mark_seen=True)
-                        for msg in messages:
-                            msg_time = msg.date
-                            if time_diff and datetime.now() - msg_time > time_diff:
-                                continue
-                            if specific_date and msg_time.date() != specific_date.date():
-                                continue
-                            if keyword and keyword not in (msg.text or msg.html):
-                                continue
-                            soup = BeautifulSoup(msg.text or msg.html, features="lxml")
-                            soups.append(soup)
-                    except BaseException as folder_error:
-                        pass
-            except Exception as nm:
-                self.logger.error(str(nm))
-                return nm
-            self.logger.info(f"Got a hit on an email from {sender} with keyword {keyword} and subject {scrapsub}")
+            folders = ['INBOX', 'SENT', 'DRAFTS', 'JUNK', 'TRASH', 'ARCHIVE', 'Trash', 'DraftBox', 'Spam',
+                       'Sentbox', 'Archive', 'Deleted', 'Drafts', 'Inbox', 'Junk', 'Notes', 'Outbox', 'Sent']
+
+            soups = []
+
+            for folder_name in folders:
+                try:
+                    self.mailbox.folder.set(folder_name)
+                    messages = self.mailbox.fetch(AND(**search_criteria), mark_seen=mark_as_read)
+                    for msg in messages:
+                        msg_time = msg.date
+                        if time_diff and datetime.now() - msg_time > time_diff:
+                            continue
+                        if specific_date and msg_time.date() != specific_date.date():
+                            continue
+                        if keyword and keyword not in (msg.text or msg.html):
+                            continue
+                        soup = BeautifulSoup(msg.text or msg.html, features="lxml")
+                        soups.append({'soup': soup, 'timestamp': msg_time})
+                except Exception as e:
+                    self.logger.debug(f"An error occurred when processing folder '{folder_name}': {e}")
+                    continue
+            soups.sort(key=lambda x: x['timestamp'], reverse=True)
+
+            if soups:
+                self.logger.info(f"Got a hit on an email from {sender} with keyword {keyword} and subject {scrapsub}")
+            else:
+                self.logger.info("No emails matched the criteria.")
             return soups if soups else None
-        else:
-            self.logger.error(f"Authentication Failed on {self.u}")
-            return None
 
     def clear_handlers(self):
         if hasattr(self, 'logger'):
